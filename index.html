@@ -1,0 +1,60 @@
+<!doctype html>
+<html class="no-js" lang="">
+
+<head>
+  <meta charset="utf-8">
+  <title>Gamedev</title>
+
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/main.css">
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    .canvas {
+      height: 400px;
+      width: 100%;
+      position: relative;
+      border: 1px solid red;
+    }
+
+    .creature {
+      width: 20px;
+      height: 20px;
+      margin-left: -10px;
+      margin-bottom: -10px;
+      border-radius: 50%;
+      background: red;
+
+      position: absolute;
+    }
+
+    .hare {
+      left: 100px;
+      top: 100px;
+      background: grey;
+    }
+
+    .deer {
+      background: brown;
+    }
+
+    .wolf {
+      background: lightgrey;
+      border: 1px solid grey;
+    }
+  </style>
+
+</head>
+
+<body>
+
+<div class="canvas" id="land">
+  <div class="creature hunter"></div>
+</div>
+  <script src="js/main.js"></script>
+</body>
+
+</html>
