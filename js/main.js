@@ -298,31 +298,33 @@ class MoverView {
 class Hunter extends Creature {
     speed = 10;
     bullets = 5;
+    sideMove = null;
+    verticalMove = null;
 
     constructor(view, coord, game) {
         super(CreatureTypes.Hunter, view, coord, game);
 
         document.addEventListener('keydown', (e) => {
-
             const code = e.keyCode;
-            console.log(e, code);
 
             switch (code) {
                 case 37:
-                    this.moveLeft();
+                    this.sideMove = -1;
                     break;
                 case 38:
-                    this.moveUp();
+                    this.verticalMove = 1;
                     break;
                 case 39:
-                    this.moveRight();
+                    this.sideMove = 1;
                     break;
                 case 40:
-                    this.moveDown();
+                    this.verticalMove = -1;
                     break;
                 default:
                     break;
             }
+
+            this.move();
         });
 
         LAND.elem.addEventListener('click', this.shoot.bind(this));
@@ -346,20 +348,11 @@ class Hunter extends Creature {
         }
     }
 
-    moveUp() {
-        this.updateCoordinate([ this.coord[ 0 ], this.coord[ 1 ] + this.speed ]);
-    }
+    move(){
+        const x = this.coord[0] + (this.sideMove !== null ? this.speed * this.sideMove : 0);
+        const y = this.coord[1] + (this.verticalMove !== null ? this.speed * this.verticalMove : 0);
 
-    moveDown() {
-        this.updateCoordinate([ this.coord[ 0 ], this.coord[ 1 ] - this.speed ]);
-    }
-
-    moveLeft() {
-        this.updateCoordinate([ this.coord[ 0 ] - this.speed, this.coord[ 1 ] ]);
-    }
-
-    moveRight() {
-        this.updateCoordinate([ this.coord[ 0 ] + this.speed, this.coord[ 1 ] ]);
+        this.updateCoordinate([x, y]);
     }
 
     die() {
