@@ -18,10 +18,14 @@ const LAND = new Land();
 const sumVectors = (v1, v2) => [ v1[ 0 ] + v2[ 0 ], v1[ 1 ] + v2[ 1 ] ];
 const subtractVectors = (v1, v2) => [ v1[ 0 ] - v2[ 0 ], v1[ 1 ] - v2[ 1 ] ];
 const normalize = (v) => (Math.abs(v[ 0 ]) > Math.abs(v[ 1 ])) ?
-    [ v[0] > 0 ? 1 : -1, v[ 1 ] / v[ 0 ] ] : [ v[ 0 ] / v[ 1 ], v[1] > 0 ? 1 : -1 ]; // todo
+    [ v[ 0 ] > 0 ? 1 : -1, v[ 1 ] / v[ 0 ] ] : [ v[ 0 ] / v[ 1 ], v[ 1 ] > 0 ? 1 : -1 ]; // todo
 const mt = (vec, num) => [ vec[ 0 ] * num, vec[ 1 ] * num ];
 const dv = (vec, num) => [ vec[ 0 ] / num, vec[ 1 ] / num ];
 const distanceKoef = (c1, c2) => Math.pow(c1[ 0 ] - c2[ 0 ], 2) + Math.pow(c1[ 1 ] - c2[ 1 ], 2);
+const distKoefCoords = (c1, c2) => {
+    const a = subtractVectors(c1, c2);
+    return Math.pow(a[ 0 ], 2) + Math.pow(a[ 1 ], 2);
+};
 
 const createElem = (id, className) => {
     const elem = document.createElement('div');
@@ -43,9 +47,9 @@ class Game {
     }
 
     spawn() {
-        const haresNum = 1;
-        const wolvesNum = 1;
-        const deerNum = 0;
+        const haresNum = 0;
+        const wolvesNum = 0;
+        const deerNum = 3;
 
         for (let i = 0; i < haresNum; i++) {
             LAND.elem.appendChild(createElem("hare-" + i, 'hare'));
@@ -59,7 +63,7 @@ class Game {
 
         for (let i = 0; i < deerNum; i++) {
             LAND.elem.appendChild(createElem("deer-" + i, 'deer'));
-            this.creatures.push(new Deer(new MoverView("#deer-" + i)), this.randomCoord());
+            this.creatures.push(new Deer(new MoverView("#deer-" + i), this.randomCoord()));
         }
 
         this.creatures.push(new Hunter(new MoverView(".hunter"), [ 100, 100 ]));
@@ -88,7 +92,7 @@ class Game {
     findNearestOnVector(c, vector) {
         const left = vector[ 0 ] < 0;
         const top = vector[ 1 ] > 0;
-        console.log(left, top);
+        // console.log(left, top);
         const res = this.creatures.filter(({coord, type}) =>
             type !== CreatureTypes.Hunter &&
             (left ? coord[ 0 ] >= c[ 0 ] : coord[ 0 ] <= c[ 0 ]) &&
@@ -103,7 +107,7 @@ class Game {
         return res.sort((a, b) => distanceKoef(a.coord, c) - distanceKoef(b.coord, c))[ 0 ];
     }
 
-    remove(c){
+    remove(c) {
         this.creatures = this.creatures.filter(cr => cr !== c);
     }
 
@@ -139,11 +143,13 @@ class Creature {
     die() {
         clearTimeout(this.timeout);
         this.view.elem.remove();
+        console.log("I died")
         CANVAS.remove(this);
     }
 
     updateCoordinate(newCoord) {
         if (newCoord[ 0 ] < 0 || newCoord[ 0 ] > LAND.width || newCoord[ 1 ] < 0 || newCoord[ 1 ] > LAND.height) {
+            console.log("out");
             this.die();
             return false;
         }
@@ -161,12 +167,24 @@ class Creature {
         this.velocity = this.getDesiredVelocity();
     }
 
-    updateVelocity() {
+    avoidCreatures(filterAvoid) {
+        let creaturesNear = CANVAS.inRadius(this, this.alertRadius).filter(filterAvoid)
+            .map(c => subtractVectors(this.coord, c.coord));
 
+        if (creaturesNear.length === 0) {
+            return this.velocity;
+        }
+
+        const res = dv(creaturesNear.reduce((acc, val) => sumVectors(acc, val)), creaturesNear.length);
+        // console.log(creaturesNear, res);
+        return mt(normalize(res), 5);
     }
+
 
     avoidCliff() {
         let avoidVectors = [];
+        // console.log(this.coord, this.wallRadius)
+
         if (this.coord[ 0 ] <= this.wallRadius) {
             avoidVectors.push([ 1, 0 ]);
         } else if (LAND.width - this.coord[ 0 ] <= this.wallRadius) {
@@ -188,7 +206,7 @@ class Creature {
     }
 
     wander() {
-        // console.log("wander")
+        console.log("wander")
         this.speed = this.wanderSpeed;
         if (this.target != null) {
 
@@ -204,12 +222,47 @@ class Creature {
         return this.velocity;
     }
 
+    group() {
+        const inR = CANVAS.inRadius(this, WOLF_RAD).filter(a => a.type === this.type);
+
+        if (inR.length === 0) return this.velocity; // todo
+
+        // console.log(this.coord, this.chasingPrey.coord, subtractVectors(this.coord, prey.coord));
+        const space = normalize(dv(inR.reduce((acc, val) => sumVectors(acc, val)), inR.length));
+        const res = mt(normalize(subtractVectors(this.coord, inR[ 0 ].coord)), -1);
+        console.log("group", res);
+        return sumVectors(space, res);
+    }
+
+    chase(filterPrey) {
+        const inR = CANVAS.inRadius(this, WOLF_RAD).filter(filterPrey);
+
+        if (inR.length === 0) return this.velocity; // todo
+        this.chasingPrey = inR[ 0 ];
+        let prey = inR[ 0 ];
+
+
+        if (distKoefCoords(prey.coord, this.coord) <= 8) {
+            console.log("I killed", this.type);
+            prey.die();
+            return this.velocity;
+        }
+
+        // console.log(this.coord, this.chasingPrey.coord, subtractVectors(this.coord, prey.coord));
+
+        return mt(normalize(subtractVectors(this.coord, this.chasingPrey.coord)), -5);
+    }
+
     specificVelocity() {
         return [ 0, 0 ];
     }
 
     getDesiredVelocity() {
-        const desiredVector = sumVectors(this.avoidCliff(), this.specificVelocity());
+        const avoidVec = this.avoidCliff();
+        const spec = this.specificVelocity();
+
+        // console.log(avoidVec);
+        const desiredVector = sumVectors(avoidVec, spec);
 
         if (desiredVector[ 0 ] === 0 && desiredVector[ 1 ] === 0) return this.wander();
 
@@ -313,26 +366,8 @@ class Wolf extends Creature {
         super(CreatureTypes.Wolf, view, coord);
     }
 
-    chase() {
-        const inR = CANVAS.inRadius(this, WOLF_RAD).filter(a => a.type !== CreatureTypes.Wolf);
-
-        if (inR.length === 0) return this.velocity;
-        this.chasingPrey = inR[ 0 ];
-        let prey = inR[0];
-
-
-        if (distanceKoef(prey.coord, this.coord) <= 8){
-            prey.die();
-            return this.velocity;
-        }
-
-        // console.log(this.coord, this.chasingPrey.coord, subtractVectors(this.coord, prey.coord));
-
-        return mt(normalize(subtractVectors(this.coord, this.chasingPrey.coord)), -5);
-    }
-
     specificVelocity() {
-        return this.chase();
+        return this.chase(a => a.type !== CreatureTypes.Wolf);
     }
 }
 
@@ -341,22 +376,12 @@ class Deer extends Creature {
         super(CreatureTypes.Deer, view, coord);
     }
 
-    avoidWolves() {
-        let wolvesNear = CANVAS.inRadius(this, this.alertRadius)
-            .filter(c => c.type === CreatureTypes.Wolf)
-            .map(w => w.coord);
-
-        if (wolvesNear.length === 0) {
-            return [ 0, 0 ];
-        }
-
-        const v = wolvesNear.reduce((val, acc) => sumVectors(acc, subtractVectors(val, this.coord)));
-        return [ -v[ 0 ], -v[ 1 ] ];
-    }
-
     specificVelocity() {
-        // todo
-        return this.avoidWolves();
+        // return this.avoidCreatures(a => true)
+        return dv(sumVectors(
+            this.group(),
+            this.avoidCreatures(a => a.type === CreatureTypes.Wolf)
+        ), 2);
     }
 
 }
@@ -366,22 +391,8 @@ class Hare extends Creature {
         super(CreatureTypes.Hare, view, coord);
     }
 
-    avoidEveryone() {
-        let creaturesNear = CANVAS.inRadius(this, this.alertRadius).map(c => subtractVectors(this.coord, c.coord));
-
-        if (creaturesNear.length === 0) {
-            return this.velocity;
-        }
-
-        const res = dv(creaturesNear.reduce((acc, val) => sumVectors(acc, val)), creaturesNear.length);
-        console.log(creaturesNear, res);
-        return mt(normalize(res), 5);
-    }
-
     specificVelocity() {
-        return this.velocity
-        // console.log(this.avoidEveryone())
-        return this.avoidEveryone();
+        return this.avoidCreatures((a) => true);
     }
 }
 
