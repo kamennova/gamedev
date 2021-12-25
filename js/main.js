@@ -33,7 +33,7 @@ const createElem = (id, className) => {
     elem.classList.add("creature");
     elem.classList.add(className);
     return elem;
-}
+};
 
 class Game {
     score = 0;
@@ -48,7 +48,7 @@ class Game {
 
     spawn() {
         const haresNum = 0;
-        const wolvesNum = 0;
+        const wolvesNum = 1;
         const deerNum = 3;
 
         for (let i = 0; i < haresNum; i++) {
@@ -127,12 +127,14 @@ class Creature {
     type;
     timeout;
     target = null;
+    lastAte = Date.now();
 
     constructor(type, view, coord) {
         this.type = type;
         this.view = view;
         this.coord = coord;
         this.view.updateCoordinate(this.coord);
+        this.lastAte = Date.now();
     }
 
     start() {
@@ -237,6 +239,13 @@ class Creature {
     chase(filterPrey) {
         const inR = CANVAS.inRadius(this, WOLF_RAD).filter(filterPrey);
 
+        if (Date.now() - this.lastAte > 10000) {
+            if (Date.now() - this.lastAte > 20000){
+                this.die();
+                return this.velocity;
+            }
+        }
+
         if (inR.length === 0) return this.velocity; // todo
         this.chasingPrey = inR[ 0 ];
         let prey = inR[ 0 ];
@@ -244,6 +253,7 @@ class Creature {
 
         if (distKoefCoords(prey.coord, this.coord) <= 8) {
             console.log("I killed", this.type);
+            this.lastAte = Date.now();
             prey.die();
             return this.velocity;
         }
@@ -360,8 +370,6 @@ class Hunter extends Creature {
 }
 
 class Wolf extends Creature {
-    chasingPrey;
-
     constructor(view, coord) {
         super(CreatureTypes.Wolf, view, coord);
     }
