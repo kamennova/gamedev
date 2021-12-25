@@ -54,7 +54,7 @@
 <div class="canvas" id="land">
   <div class="creature hunter"></div>
 </div>
-<form>
+<form name="params">
   <label>
     Hares
     <input name="hares" type="number" min="0" max="10" value="3"/>
@@ -62,17 +62,17 @@
 
 
   <label>
-    Deer
-    <input name="hares" type="number" min="0" max="20" value="6"/>
+    Deer groups
+    <input name="deer" type="number" min="0" max="5" value="2"/>
   </label>
 
 
   <label>
     Wolves
-    <input name="hares" type="number" min="0" max="10" value="2"/>
+    <input name="wolves" type="number" min="0" max="10" value="2"/>
   </label>
 
-  <input type="submit" />
+  <input type="button" id="ok" value="Ok" />
 </form>
 <script src="js/main.js"></script>
 </body>

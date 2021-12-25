@@ -37,6 +37,11 @@ const createElem = (id, className) => {
 
 class Game {
     score = 0;
+    creatures = [];
+
+    constructor(params){
+        this.spawn(params);
+    }
 
     randomCoord() {
         return [ Math.random() * 800, Math.random() * 400 ];
@@ -46,35 +51,28 @@ class Game {
         console.log("Game over, ", isWinner ? "your score: " + this.score : "you lost");
     }
 
-    spawn() {
-        const haresNum = 0;
-        const wolvesNum = 1;
-        const deerNum = 3;
-
-        for (let i = 0; i < haresNum; i++) {
+    spawn(params) {
+        for (let i = 0; i < params.hares; i++) {
             LAND.elem.appendChild(createElem("hare-" + i, 'hare'));
-            this.creatures.push(new Hare(new MoverView("#hare-" + i), this.randomCoord()));
+            this.creatures.push(new Hare(new MoverView("#hare-" + i), this.randomCoord(), this));
         }
 
-        for (let i = 0; i < wolvesNum; i++) {
+        for (let i = 0; i < params.wolves; i++) {
             LAND.elem.appendChild(createElem("wolf-" + i, 'wolf'));
-            this.creatures.push(new Wolf(new MoverView("#wolf-" + i), this.randomCoord()));
+            this.creatures.push(new Wolf(new MoverView("#wolf-" + i), this.randomCoord(), this));
         }
 
-        for (let i = 0; i < deerNum; i++) {
+        for (let i = 0; i < params.deer; i++) {
             LAND.elem.appendChild(createElem("deer-" + i, 'deer'));
-            this.creatures.push(new Deer(new MoverView("#deer-" + i), this.randomCoord()));
+            this.creatures.push(new Deer(new MoverView("#deer-" + i), this.randomCoord(), this));
         }
 
-        this.creatures.push(new Hunter(new MoverView(".hunter"), [ 100, 100 ]));
+        this.creatures.push(new Hunter(new MoverView(".hunter"), [ 100, 100 ], this));
     }
 
     start() {
-        this.spawn();
         this.creatures.forEach(c => c.type !== CreatureTypes.Hunter ? c.start() : undefined);
     }
-
-    creatures = [];
 
     inRadius(self, radius) {
         return this.creatures.filter((cr) => {
@@ -113,7 +111,6 @@ class Game {
 
 }
 
-const CANVAS = new Game();
 
 class Creature {
     maxSpeed = 40;
@@ -128,13 +125,15 @@ class Creature {
     timeout;
     target = null;
     lastAte = Date.now();
+    game;
 
-    constructor(type, view, coord) {
+    constructor(type, view, coord, game) {
         this.type = type;
         this.view = view;
         this.coord = coord;
         this.view.updateCoordinate(this.coord);
         this.lastAte = Date.now();
+        this.game = game;
     }
 
     start() {
@@ -146,7 +145,7 @@ class Creature {
         clearTimeout(this.timeout);
         this.view.elem.remove();
         console.log("I died")
-        CANVAS.remove(this);
+        this.game.remove(this);
     }
 
     updateCoordinate(newCoord) {
@@ -170,7 +169,7 @@ class Creature {
     }
 
     avoidCreatures(filterAvoid) {
-        let creaturesNear = CANVAS.inRadius(this, this.alertRadius).filter(filterAvoid)
+        let creaturesNear = this.game.inRadius(this, this.alertRadius).filter(filterAvoid)
             .map(c => subtractVectors(this.coord, c.coord));
 
         if (creaturesNear.length === 0) {
@@ -225,7 +224,7 @@ class Creature {
     }
 
     group() {
-        const inR = CANVAS.inRadius(this, WOLF_RAD).filter(a => a.type === this.type);
+        const inR = this.game.inRadius(this, WOLF_RAD).filter(a => a.type === this.type);
 
         if (inR.length === 0) return this.velocity; // todo
 
@@ -237,10 +236,10 @@ class Creature {
     }
 
     chase(filterPrey) {
-        const inR = CANVAS.inRadius(this, WOLF_RAD).filter(filterPrey);
+        const inR = this.game.inRadius(this, WOLF_RAD).filter(filterPrey);
 
         if (Date.now() - this.lastAte > 10000) {
-            if (Date.now() - this.lastAte > 20000){
+            if (Date.now() - this.lastAte > 20000) {
                 this.die();
                 return this.velocity;
             }
@@ -300,8 +299,8 @@ class Hunter extends Creature {
     speed = 10;
     bullets = 5;
 
-    constructor(view, coord) {
-        super(CreatureTypes.Hunter, view, coord);
+    constructor(view, coord, game) {
+        super(CreatureTypes.Hunter, view, coord, game);
 
         document.addEventListener('keydown', (e) => {
 
@@ -331,7 +330,7 @@ class Hunter extends Creature {
 
     shoot(target) {
         const vector = normalize([ target.clientX - this.coord[ 0 ], 400 - target.clientY - this.coord[ 1 ] ]);
-        const creature = CANVAS.findNearestOnVector(this.coord, vector);
+        const creature = this.game.findNearestOnVector(this.coord, vector);
         console.log('shoot', vector, target, [ target.clientX - this.coord[ 0 ], 400 - target.clientY - this.coord[ 1 ] ]);
 
         if (creature == null) {
@@ -343,7 +342,7 @@ class Hunter extends Creature {
 
         this.bullets--;
         if (this.bullets === 0) {
-            CANVAS.finish(CANVAS.score > 0);
+            this.game.finish(this.game.score > 0);
         }
     }
 
@@ -365,13 +364,13 @@ class Hunter extends Creature {
 
     die() {
         super.die();
-        CANVAS.finish(false);
+        this.game.finish(false);
     }
 }
 
 class Wolf extends Creature {
-    constructor(view, coord) {
-        super(CreatureTypes.Wolf, view, coord);
+    constructor(view, coord, game) {
+        super(CreatureTypes.Wolf, view, coord, game);
     }
 
     specificVelocity() {
@@ -380,8 +379,8 @@ class Wolf extends Creature {
 }
 
 class Deer extends Creature {
-    constructor(view, coord) {
-        super(CreatureTypes.Deer, view, coord);
+    constructor(view, coord, game) {
+        super(CreatureTypes.Deer, view, coord, game);
     }
 
     specificVelocity() {
@@ -395,8 +394,8 @@ class Deer extends Creature {
 }
 
 class Hare extends Creature {
-    constructor(view, coord) {
-        super(CreatureTypes.Hare, view, coord);
+    constructor(view, coord, game) {
+        super(CreatureTypes.Hare, view, coord, game);
     }
 
     specificVelocity() {
@@ -406,4 +405,19 @@ class Hare extends Creature {
 
 // ----
 
-CANVAS.start();
+document.getElementById("ok").addEventListener("click", (e) => {
+    e.preventDefault();
+
+    const form = document.forms.params;
+    const formData = new FormData(form);
+
+    const params = {
+        hares: Number(formData.get("hares")),
+        deer: Number(formData.get("deer")) * 4,
+        wolves: Number(formData.get("wolves"))
+    };
+
+    const CANVAS = new Game(params);
+    CANVAS.start();
+});
+
