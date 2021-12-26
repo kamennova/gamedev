@@ -87,29 +87,19 @@ class Wolf extends Creature {
         super(CreatureTypes.Wolf, view, coord, game);
     }
 
-    getVelocity() {
+    specificVelocity() {
         if (Date.now() - this.lastAte > 10000) {
             if (Date.now() - this.lastAte > 20000) {
                 this.die();
-                return this.velocity;
+                return new Pos(0, 0);
             }
         }
 
 
-        const inR = this.game.inRadius(this, this.alertRadius).filter(filterPrey);
+        const inR = this.game.inRadius(this, this.alertRadius).filter(a => a.type === CreatureTypes.Deer || a.type === CreatureTypes.Hare);
+        if (inR.length === 0) return new Pos(0, 0);
 
-        if (inR.length === 0) return this.velocity; // todo
-        this.chasingPrey = inR[ 0 ];
-        let prey = inR[ 0 ];
-
-
-        if (prey.coord.sub(this.coord).innerDist() <= 3) {
-            console.log("I killed", this.type);
-            this.lastAte = Date.now();
-            prey.die();
-            return this.velocity;
-        }
-
+        return this.pursuit(inR[0]);
     }
 }
 
@@ -118,8 +108,12 @@ class Deer extends Creature {
         super(CreatureTypes.Deer, view, coord, game);
     }
 
-    getVelocity() {
-        // escape wolves, flock
+    specificVelocity() {
+        let near = this.game.inRadius(this, this.alertRadius)
+            .filter(a => a.type === CreatureTypes.Wolf || a.type === CreatureTypes.Hunter);
+        if (near.length > 0) return this.flee(near);
+
+        return this.flock()
     }
 
 }
@@ -129,8 +123,11 @@ class Hare extends Creature {
         super(CreatureTypes.Hare, view, coord, game);
     }
 
-    getVelocity(){
-        // escape all, wander
+    specificVelocity() {
+        let near = this.game.inRadius(this, this.alertRadius);
+        if (near.length === 0) return new Pos(0, 0);
+
+        return this.avoidCreatures(near);
     }
 }
 

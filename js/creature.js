@@ -1,19 +1,20 @@
 class Creature {
     maxSpeed = 10;
-    wanderSpeed = 10;
+    wanderSpeed = 5;
+    alertRadius = 60;
 
-    coord = [ 100, 100 ];
+    coord;
     wallRadius = 50;
     flockRadius = 20;
-    alertRadius = 50;
     view;
     type;
     game;
 
-    velocity = new Pos(0, 10);
+    velocity = new Pos(0, 0);
     target;
     alpha = 0.2;
     wanderAngle = 0.4;
+    lastAte = Date.now();
 
     constructor(type, view, coord, game) {
         this.type = type;
@@ -21,6 +22,15 @@ class Creature {
         this.coord = coord;
         this.view.updateCoordinate(this.coord);
         this.game = game;
+
+        if (type === CreatureTypes.Hare) {
+            this.maxSpeed = 14;
+        } else if (type === CreatureTypes.Wolf) {
+            this.maxSpeed = 12;
+            this.alertRadius = 40;
+        } else if (type === CreatureTypes.Hunter){
+            this.maxSpeed = 10;
+        }
     }
 
     die() {
@@ -93,8 +103,14 @@ class Creature {
         vector.y = Math.sin(value) * len;
     }
 
+    specificVelocity() {
+        return new Pos(0, 0);
+    }
+
     getVelocity() {
-        const steering = this.wander();
+        const w = this.wander();
+        const walls = this.avoidCliff();
+        const steering = this.specificVelocity();
         this.velocity = this.velocity.mt(1 - this.alpha).add(steering.mt(this.alpha));
     }
 
@@ -107,6 +123,14 @@ class Creature {
 
     pursuit(c) {
         const T = 3;
+
+        if (c.coord.sub(this.coord).innerDist() <= 3) {
+            console.log("I killed", this.type);
+            this.lastAte = Date.now();
+            c.die();
+            return new Pos(0, 0);
+        }
+
         const coord = c.coord.add(c.velocity.mt(T));
         return this.seek(coord);
     }
@@ -128,7 +152,7 @@ class Creature {
     }
 
     flock() {
-        let near = this.game.inRadius(this, this.flockRadius);
+        let near = this.game.inRadius(this, this.flockRadius).filter(a => a.type === this.type);
         if (near.length === 0) return new Pos(0, 0);
 
         const s = this.avoidCreatures(near).mt(1.5);
