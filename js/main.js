@@ -38,13 +38,16 @@ const createElem = (id, className) => {
 class Game {
     score = 0;
     creatures = [];
+    timeout;
+    counter = 0;
+    isOn = false;
 
-    constructor(params){
+    constructor(params) {
         this.spawn(params);
     }
 
     randomCoord() {
-        return [ Math.random() * 800, Math.random() * 400 ];
+        return new Pos(Math.random() * 800, Math.random() * 400);
     }
 
     finish(isWinner) {
@@ -67,11 +70,29 @@ class Game {
             this.creatures.push(new Deer(new MoverView("#deer-" + i), this.randomCoord(), this));
         }
 
-        this.creatures.push(new Hunter(new MoverView(".hunter"), [ 100, 100 ], this));
+        this.creatures.push(new Hunter(new MoverView(".hunter"), this.randomCoord(), this));
     }
 
     start() {
-        this.creatures.forEach(c => c.type !== CreatureTypes.Hunter ? c.start() : undefined);
+        this.isOn = true;
+        this.updateRegular();
+    }
+
+    stop() {
+        console.log("stopped");
+        this.isOn = false;
+        clearTimeout(this.timeout);
+    }
+
+    updateRegular() {
+        if (!this.isOn) {
+            return;
+        }
+
+        console.log("upd");
+
+        this.creatures.forEach(c => c.updateCoordinateRegular());
+        this.timeout = setTimeout(this.updateRegular.bind(this), 100);
     }
 
     inRadius(self, radius) {
@@ -111,21 +132,68 @@ class Game {
 
 }
 
+class Pos {
+    x;
+    y;
+
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    sub(pos2) {
+        return new Pos(this.x - pos2.x, this.y - pos2.y);
+    }
+
+    add(pos2) {
+        return new Pos(this.x + pos2.x, this.y + pos2.y);
+    }
+
+    innerDist() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+
+    equals(pos2) {
+        return pos2.x === this.x && pos2.y === this.y;
+    }
+
+    cut(vec) {
+        const hp = this.innerDist();
+        if (hp <= vec) return new Pos(this.x, this.y);
+
+        const k = vec / hp;
+        return new Pos(this.x * k, this.y * k);
+    }
+
+    mt(num) {
+        return new Pos(this.x * num, this.y * num);
+    }
+
+    clone() {
+        return new Pos(this.x, this.y);
+    }
+}
 
 class Creature {
-    maxSpeed = 40;
+    maxSpeed = 10;
     wanderSpeed = 10;
-    speed = 10;
-    velocity = 0;
+
     coord = [ 100, 100 ];
     wallRadius = 50;
+    flockRadius = 20;
     alertRadius = 50;
     view;
     type;
     timeout;
-    target = null;
     lastAte = Date.now();
     game;
+
+    direction; // in radians
+    velocity = new Pos(0, 10);
+    speed = 10;
+    target;
+    alpha = 0.2;
+    wanderAngle = 0.4;
 
     constructor(type, view, coord, game) {
         this.type = type;
@@ -136,20 +204,15 @@ class Creature {
         this.game = game;
     }
 
-    start() {
-        this.velocity = [ 0, 10 ];
-        this.updateCoordinateRegular();
-    }
-
     die() {
-        clearTimeout(this.timeout);
+        // clearTimeout(this.timeout);
         this.view.elem.remove();
-        console.log("I died")
+        console.log("I died");
         this.game.remove(this);
     }
 
     updateCoordinate(newCoord) {
-        if (newCoord[ 0 ] < 0 || newCoord[ 0 ] > LAND.width || newCoord[ 1 ] < 0 || newCoord[ 1 ] > LAND.height) {
+        if (newCoord.x < 0 || newCoord.x > LAND.width || newCoord.y < 0 || newCoord.y > LAND.height) {
             console.log("out");
             this.die();
             return false;
@@ -161,22 +224,16 @@ class Creature {
     }
 
     updateCoordinateRegular() {
-        // console.log("upd");
-        if (!this.updateCoordinate([ this.coord[ 0 ] + this.velocity[ 0 ], this.coord[ 1 ] + this.velocity[ 1 ] ])) return;
-        this.timeout = setTimeout(this.updateCoordinateRegular.bind(this), 100);
-
-        this.velocity = this.getDesiredVelocity();
+        // this.getDesiredVelocity();
+        const force = this.wander();
+        this.velocity = this.velocity.mt(1 - this.alpha).add(force.mt(this.alpha));
+        this.updateCoordinate(this.coord.add(this.velocity));
     }
 
-    avoidCreatures(filterAvoid) {
-        let creaturesNear = this.game.inRadius(this, this.alertRadius).filter(filterAvoid)
-            .map(c => subtractVectors(this.coord, c.coord));
+    avoidCreatures(creaturesNear) {
+        let near = creaturesNear.map(c => subtractVectors(this.coord, c.coord))
 
-        if (creaturesNear.length === 0) {
-            return this.velocity;
-        }
-
-        const res = dv(creaturesNear.reduce((acc, val) => sumVectors(acc, val)), creaturesNear.length);
+        const res = dv(near.reduce((acc, val) => sumVectors(acc, val)), creaturesNear.length);
         // console.log(creaturesNear, res);
         return mt(normalize(res), 5);
     }
@@ -207,20 +264,19 @@ class Creature {
     }
 
     wander() {
-        console.log("wander")
-        this.speed = this.wanderSpeed;
-        if (this.target != null) {
+        const change = 0.2;
+        const center = this.velocity.clone().cut(1).mt(16);
+        const displacement = new Pos(0, -1).mt(5); // todo
 
-        } else {
-            const angle = Math.random() * 3;
-            const rad = Math.random() * 5;
-            const y = Math.sin(angle) * rad;
-            const x = Math.cos(angle) * rad;
-            // this.target = [this.coord[0] + x, this.coord[1] + y];
-            // console.log(this.coord, this.target, rad, angle);
-            return [ x, y ];
-        }
-        return this.velocity;
+        this.setAngle(displacement, this.wanderAngle);
+        this.wanderAngle += Math.random() * change - change / 2;
+        return center.add(displacement);
+    }
+
+    setAngle(vector, value) {
+        const len = vector.innerDist();
+        vector.x = Math.cos(value) * len;
+        vector.y = Math.sin(value) * len;
     }
 
     group() {
@@ -266,16 +322,65 @@ class Creature {
         return [ 0, 0 ];
     }
 
-    getDesiredVelocity() {
-        const avoidVec = this.avoidCliff();
-        const spec = this.specificVelocity();
+    toAngle(rad) {
+        return (((rad * 180 / Math.PI) + 180) % 360) * Math.PI / 180;
+    }
 
-        // console.log(avoidVec);
-        const desiredVector = sumVectors(avoidVec, spec);
+    seek(target) {
+        const vec = this.target.sub(this.coord);
 
-        if (desiredVector[ 0 ] === 0 && desiredVector[ 1 ] === 0) return this.wander();
+        this.direction = this.toAngle(Math.atan(vec.y / vec.x));
+        this.speed = Math.min(vec.innerDist(), this.maxSpeed);
+        const desired = vec.cut(this.maxSpeed);
 
-        return desiredVector;
+        const steering = desired.sub(this.velocity);
+        this.velocity = this.velocity.mt(1 - this.alpha).add(steering.mt(this.alpha));
+
+        console.log(this.direction, this.speed, this.toAngle(this.direction));
+
+        // const avoidVec = this.avoidCliff();
+        // const spec = this.specificVelocity();
+
+        // const desiredVector = sumVectors(avoidVec, spec);
+        // if (desiredVector[ 0 ] === 0 && desiredVector[ 1 ] === 0) return this.wander();
+        // return desiredVector;
+    }
+
+    pursuit(c) {
+        const T = 3;
+        const coord = c.coord.add(c.velocity.mt(T));
+        this.seek(coord);
+    }
+
+
+    getTarget() {
+        this.target = new Pos(100, 100);
+        return this.target;
+    }
+
+    align(creaturesNear) {
+        let near = creaturesNear.map(c => c.velocity)
+            .reduce((acc, val) => acc.add(val))
+            .mt(1 / creaturesNear.length);
+
+        return near.cut(this.maxSpeed).sub(this.velocity).cut(this.maxSpeed);
+    }
+
+    cohesion(creaturesNear) {
+        let near = creaturesNear.map(c => c.coord)
+            .reduce((acc, val) => acc.add(val))
+            .mt(1 / creaturesNear.length);
+
+        return this.seek(near);
+    }
+
+    flock() {
+        let near = this.game.inRadius(this, this.flockRadius);
+        if (near.length === 0) return new Pos(0, 0);
+
+        const s = this.avoidCreatures(near);
+        const al = this.align(near);
+        const c = this.cohesion(near);
     }
 }
 
@@ -288,8 +393,8 @@ class MoverView {
     elem;
 
     updateCoordinate(coord) {
-        this.elem.style.left = coord[ 0 ] + "px";
-        this.elem.style.bottom = coord[ 1 ] + "px";
+        this.elem.style.left = coord.x + "px";
+        this.elem.style.bottom = coord.y + "px";
     }
 }
 
@@ -323,8 +428,23 @@ class Hunter extends Creature {
                 default:
                     break;
             }
+        });
 
-            this.move();
+        document.addEventListener('keyup', (e) => {
+            const code = e.keyCode;
+
+            switch (code) {
+                case 37:
+                case 39:
+                    this.sideMove = null;
+                    break;
+                case 38:
+                case 40:
+                    this.verticalMove = null;
+                    break;
+                default:
+                    break;
+            }
         });
 
         LAND.elem.addEventListener('click', this.shoot.bind(this));
@@ -348,11 +468,11 @@ class Hunter extends Creature {
         }
     }
 
-    move(){
-        const x = this.coord[0] + (this.sideMove !== null ? this.speed * this.sideMove : 0);
-        const y = this.coord[1] + (this.verticalMove !== null ? this.speed * this.verticalMove : 0);
-
-        this.updateCoordinate([x, y]);
+    updateCoordinateRegular() {
+        this.updateCoordinate(this.coord.add(new Pos(
+            this.sideMove !== null ? this.speed * this.sideMove : 0,
+            this.verticalMove !== null ? this.speed * this.verticalMove : 0
+        )));
     }
 
     die() {
@@ -398,6 +518,8 @@ class Hare extends Creature {
 
 // ----
 
+let game;
+
 document.getElementById("ok").addEventListener("click", (e) => {
     e.preventDefault();
 
@@ -410,7 +532,10 @@ document.getElementById("ok").addEventListener("click", (e) => {
         wolves: Number(formData.get("wolves"))
     };
 
-    const CANVAS = new Game(params);
-    CANVAS.start();
+    game = new Game(params);
+    game.start();
 });
 
+document.getElementById("stop").addEventListener("click", (e) => {
+    game.stop();
+});
