@@ -28,7 +28,7 @@ class Creature {
         } else if (type === CreatureTypes.Wolf) {
             this.maxSpeed = 12;
             this.alertRadius = 40;
-        } else if (type === CreatureTypes.Hunter){
+        } else if (type === CreatureTypes.Hunter) {
             this.maxSpeed = 10;
         }
     }
@@ -67,23 +67,23 @@ class Creature {
         let avoidVectors = [];
         // console.log(this.coord, this.wallRadius)
 
-        if (this.coord[ 0 ] <= this.wallRadius) {
-            avoidVectors.push([ 1, 0 ]);
-        } else if (LAND.width - this.coord[ 0 ] <= this.wallRadius) {
-            avoidVectors.push([ -1, 0 ]);
+        if (this.coord.x <= this.wallRadius) {
+            avoidVectors.push(new Pos(1, 0));
+        } else if (LAND.width - this.coord.x <= this.wallRadius) {
+            avoidVectors.push(new Pos( -1, 0 ));
         }
 
-        if (this.coord[ 1 ] <= this.wallRadius) {
-            avoidVectors.push([ 0, 1 ]);
-        } else if (LAND.height - this.coord[ 1 ] <= this.wallRadius) {
-            avoidVectors.push([ 0, -1 ]);
+        if (this.coord.y <= this.wallRadius) {
+            avoidVectors.push(new Pos( 0, 1 ));
+        } else if (LAND.height - this.coord.y <= this.wallRadius) {
+            avoidVectors.push(new Pos( 0, -1 ));
         }
 
         if (avoidVectors.length === 0) {
-            return [ 0, 0 ];
+            return new Pos(0, 0);
         }
 
-        const sum = avoidVectors.reduce((a, b) => [ a[ 0 ] + b[ 0 ], a[ 1 ] + b[ 1 ] ]);
+        const sum = avoidVectors.reduce((a, b) => a = a.add(b));
         return sum;
     }
 
@@ -108,9 +108,9 @@ class Creature {
     }
 
     getVelocity() {
-        const w = this.wander();
+        const spec = this.specificVelocity();
         const walls = this.avoidCliff();
-        const steering = this.specificVelocity();
+        const steering = spec.equals(new Pos(0, 0)) && walls.equals(new Pos(0, 0)) ? this.wander() : spec.add(walls);
         this.velocity = this.velocity.mt(1 - this.alpha).add(steering.mt(this.alpha));
     }
 

@@ -1,4 +1,3 @@
-
 const CreatureTypes = {
     Wolf: 'Wolf',
     Hunter: 'Hunter',
@@ -10,6 +9,11 @@ class Land {
     width = 800;
     height = 400;
     elem = document.getElementById("land");
+
+    constructor() {
+        this.width = this.elem.offsetWidth;
+        this.height = this.elem.offsetHeight;
+    }
 }
 
 const LAND = new Land();
