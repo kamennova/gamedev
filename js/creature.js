@@ -5,7 +5,7 @@ class Creature {
 
     coord;
     wallRadius = 50;
-    flockRadius = 20;
+    flockRadius = 60;
     view;
     type;
     game;
@@ -27,7 +27,7 @@ class Creature {
             this.maxSpeed = 14;
         } else if (type === CreatureTypes.Wolf) {
             this.maxSpeed = 12;
-            this.alertRadius = 40;
+            this.alertRadius = 100;
         } else if (type === CreatureTypes.Hunter) {
             this.maxSpeed = 10;
         }
@@ -57,6 +57,7 @@ class Creature {
     }
 
     avoidCreatures(creaturesNear) {
+        if (creaturesNear.length === 0) return new Pos(0, 0);
         let near = creaturesNear.map(c => this.coord.sub(c.coord));
 
         const res = near.reduce((acc, val) => acc = acc.add(val)).mt(1 / creaturesNear.length);
@@ -65,7 +66,6 @@ class Creature {
 
     avoidCliff() {
         let avoidVectors = [];
-        // console.log(this.coord, this.wallRadius)
 
         if (this.coord.x <= this.wallRadius) {
             avoidVectors.push(new Pos(1, 0));
@@ -83,8 +83,7 @@ class Creature {
             return new Pos(0, 0);
         }
 
-        const sum = avoidVectors.reduce((a, b) => a = a.add(b));
-        return sum;
+        return avoidVectors.reduce((a, b) => a = a.add(b)).mt(this.maxSpeed).cut(this.maxSpeed);
     }
 
     wander() {
@@ -94,7 +93,7 @@ class Creature {
 
         Creature.setAngle(displacement, this.wanderAngle);
         this.wanderAngle += Math.random() * change - change / 2;
-        return center.add(displacement);
+        return center.add(displacement).cut(1).mt(this.wanderSpeed);
     }
 
     static setAngle(vector, value) {
@@ -124,7 +123,7 @@ class Creature {
     pursuit(c) {
         const T = 3;
 
-        if (c.coord.sub(this.coord).innerDist() <= 3) {
+        if (c.coord.sub(this.coord).innerDist() <= 4) {
             console.log("I killed", this.type);
             this.lastAte = Date.now();
             c.die();
@@ -155,8 +154,9 @@ class Creature {
         let near = this.game.inRadius(this, this.flockRadius).filter(a => a.type === this.type);
         if (near.length === 0) return new Pos(0, 0);
 
-        const s = this.avoidCreatures(near).mt(1.5);
-        const al = this.align(near);
+        let avoid = this.game.inRadius(this, 30).filter(a => a.type === this.type);
+        const s = this.avoidCreatures(avoid.length > 0 ? avoid : []).mt(1.5);
+        const al = this.align(near).mt(2);
         const c = this.cohesion(near);
 
         return s.add(al).add(c);

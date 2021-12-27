@@ -88,18 +88,16 @@ class Wolf extends Creature {
     }
 
     specificVelocity() {
-        if (Date.now() - this.lastAte > 10000) {
-            if (Date.now() - this.lastAte > 20000) {
-                this.die();
-                return new Pos(0, 0);
-            }
+        if (Date.now() - this.lastAte > 40000) {
+            this.die();
+            return new Pos(0, 0);
         }
 
-
-        const inR = this.game.inRadius(this, this.alertRadius).filter(a => a.type === CreatureTypes.Deer || a.type === CreatureTypes.Hare);
+        const inR = this.game.inRadius(this, this.alertRadius)
+            .filter(a => a.type === CreatureTypes.Deer || a.type === CreatureTypes.Hare || a.type === CreatureTypes.Hunter);
         if (inR.length === 0) return new Pos(0, 0);
 
-        return this.pursuit(inR[0]);
+        return this.pursuit(inR[ 0 ]);
     }
 }
 
@@ -111,7 +109,7 @@ class Deer extends Creature {
     specificVelocity() {
         let near = this.game.inRadius(this, this.alertRadius)
             .filter(a => a.type === CreatureTypes.Wolf || a.type === CreatureTypes.Hunter);
-        if (near.length > 0) return this.flee(near);
+        if (near.length > 0) return this.avoidCreatures(near);
 
         return this.flock()
     }

@@ -130,12 +130,14 @@ class Game {
     inRadius(self, radius) {
         return this.creatures.filter((cr) => {
             if (cr === self) return false;
+
             const coord = cr.coord;
             const c = self.coord;
-            let xDiff = Math.abs(coord[ 0 ] - c[ 0 ]);
+            let xDiff = Math.abs(coord.x - c.x);
             if (xDiff > radius) return false;
-            let yDiff = coord[ 1 ] - c[ 1 ];
+            let yDiff = coord.y - c.y;
             if (yDiff > radius) return false;
+
             return Math.sqrt(yDiff * yDiff + xDiff * xDiff) <= radius;
         });
     }
