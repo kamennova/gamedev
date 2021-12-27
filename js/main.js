@@ -49,16 +49,17 @@ class Hunter extends Creature {
     }
 
     shoot(target) {
-        //  todo
-        const vector = normalize([ target.clientX - this.coord[ 0 ], 400 - target.clientY - this.coord[ 1 ] ]);
+        console.log(target.clientX, LAND.height - target.clientY)
+        const vector = new Pos(target.clientX, LAND.height - target.clientY).sub(this.coord).cut(1);
         const creature = this.game.findNearestOnVector(this.coord, vector);
-        console.log('shoot', vector, target, [ target.clientX - this.coord[ 0 ], 400 - target.clientY - this.coord[ 1 ] ]);
+        console.log('shoot', vector, target);
 
         if (creature == null) {
-            console.log("Missed");
+            ALERT.innerText = "Missed";
         } else {
             creature.die();
-            console.log("Hit");
+            this.game.score++;
+            ALERT.innerText = "Hit";
         }
 
         this.bullets--;

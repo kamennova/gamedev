@@ -17,6 +17,7 @@ class Land {
 }
 
 const LAND = new Land();
+const ALERT = document.getElementById("alert");
 
 class Pos {
     x;
@@ -83,7 +84,8 @@ class Game {
     }
 
     finish(isWinner) {
-        console.log("Game over, ", isWinner ? "your score: " + this.score : "you lost");
+        this.stop();
+        ALERT.innerText = "Game over, " + (isWinner ? "your score: " + this.score : "you lost");
     }
 
     spawn(params) {
@@ -145,12 +147,11 @@ class Game {
     findNearestOnVector(c, vector) {
         const left = vector.x < 0;
         const top = vector.y > 0;
-        // console.log(left, top);
-        const res = this.creatures.filter(({coord, type}) =>
-            type !== CreatureTypes.Hunter &&
-            (left ? (coord.x >= c.x) : coord.x <= c.x) &&
-            (top ? coord.y >= c.y : coord.y <= c.y) &&
-            Math.abs(vector.x * (coord.y - c.y) / vector.y + c.x - coord.x) <= 10
+
+        const res = this.creatures.filter(({coord, type}) => {
+                return type !== CreatureTypes.Hunter &&
+                    Math.abs(vector.x * (coord.y - c.y) / vector.y + c.x - coord.x) <= 15
+            }
             // x1-x / y1 -y = vector x / vector y
             // x1 = vector x * y1 - y / vector y + x
         );

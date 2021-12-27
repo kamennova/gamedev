@@ -1,7 +1,7 @@
 class Creature {
     maxSpeed = 10;
     wanderSpeed = 5;
-    alertRadius = 60;
+    alertRadius = 110;
 
     coord;
     wallRadius = 50;

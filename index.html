@@ -43,6 +43,15 @@
       background: lightgrey;
       border: 1px solid grey;
     }
+
+    .wrapper {
+      display: flex; width: 300px
+    }
+
+    .wrapper .creature {
+      position: static;
+      margin-left: 10px;
+    }
   </style>
 
 </head>
@@ -67,12 +76,23 @@
 
   <label>
     Wolves
-    <input name="wolves" type="number" min="0" max="10" value="0"/>
+    <input name="wolves" type="number" min="0" max="10" value="1"/>
   </label>
 
   <input type="button" id="ok" value="Start"/>
 </form>
 <button id="stop">Stop</button>
+<div class="wrapper" style="">
+  <div class="creature wolf"></div>
+  <span>Wolf</span>
+  <div class="hunter creature hunter"></div>
+  <span>Hunter</span>
+  <div class="deer creature deer"></div>
+  <span>Deer</span>
+  <div class="hare creature hare"></div>
+  <span>Hare</span>
+</div>
+<p class="alert" id="alert"></p>
 <script src="js/game.js"></script>
 <script src="js/creature.js"></script>
 <script src="js/main.js"></script>
